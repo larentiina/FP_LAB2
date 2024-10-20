@@ -49,4 +49,4 @@ jobs:
         run: |
             dotnet restore LAB2.Tests/LAB2.Tests.fsproj
             dotnet build ./LAB2.Tests
-            dotnet test ./LAB2.Tests
+            dotnet test --logger "console;verbosity=detailed"
