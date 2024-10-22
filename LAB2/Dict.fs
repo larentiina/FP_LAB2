@@ -1,13 +1,10 @@
 module Dict
 
-type Entry<'Key, 'Value> = {
-    Key: 'Key
-    Value: 'Value
-}
+type Entry<'Key, 'Value> = { Key: 'Key; Value: 'Value }
 
 type Chain<'Key, 'Value> = Entry<'Key, 'Value> list
 type HashMap<'Key, 'Value> = Chain<'Key, 'Value> array
-let size (map: HashMap<_, _>) =  10
+let size (map: HashMap<_, _>) = 10
 
 let hash (key: 'Key) : int =
     match box key with
@@ -16,13 +13,20 @@ let hash (key: 'Key) : int =
 
 // Функция для вставки нового элемента в хеш-таблицу
 let put (key: 'Key) (value: 'Value) (map: HashMap<'Key, 'Value>) =
-    let index = hash key 
+    let index = hash key
 
     let chain = map.[index]
 
     let putChain key value chain =
         match List.tryFind (fun entry -> entry.Key = key) chain with
-        | Some _ -> List.map (fun entry -> if entry.Key = key then { entry with Value = value } else entry) chain
+        | Some _ ->
+            List.map
+                (fun entry ->
+                    if entry.Key = key then
+                        { entry with Value = value }
+                    else
+                        entry)
+                chain
         | None -> { Key = key; Value = value } :: chain
 
     let newChain = putChain key value chain
@@ -31,15 +35,18 @@ let put (key: 'Key) (value: 'Value) (map: HashMap<'Key, 'Value>) =
 
 let get (key: 'Key) (map: HashMap<'Key, 'Value>) : Option<'Value> =
     let index = hash key
-    let chain = map.[index] 
-    chain |> List.tryFind (fun entry -> entry.Key = key) |> Option.map (fun entry -> entry.Value)
+    let chain = map.[index]
+
+    chain
+    |> List.tryFind (fun entry -> entry.Key = key)
+    |> Option.map (fun entry -> entry.Value)
 
 
 // Удаление из HashMap
 let remove key (map: HashMap<'Key, 'Value>) =
-    
+
     let index = hash key
-    let chain = map.[index] 
+    let chain = map.[index]
 
     let modifiedChain = List.filter (fun entry -> entry.Key <> key) chain
 
@@ -49,13 +56,14 @@ let remove key (map: HashMap<'Key, 'Value>) =
 // Фильтрация элементов в HashMap по предикату
 let filter (predicate: Entry<'Key, 'Value> -> bool) (map: HashMap<'Key, 'Value>) : HashMap<'Key, 'Value> =
     let addToBucket bucket entry =
-        if predicate entry then entry :: bucket else bucket
+        if predicate entry then
+            entry :: bucket
+        else
+            bucket
 
-    let filterBucket bucket =
-        List.fold addToBucket [] bucket
+    let filterBucket bucket = List.fold addToBucket [] bucket
 
-    let filteredMap =
-        Array.map filterBucket map
+    let filteredMap = Array.map filterBucket map
 
     filteredMap
 
@@ -81,7 +89,7 @@ let foldBack folder (map: HashMap<'Key, 'Value>) initial =
         | entry :: rest -> foldChain rest (folder entry.Value acc)
 
     let rec foldMap index acc =
-        if index < 0 then 
+        if index < 0 then
             acc
         else
             let chain = map.[index]
@@ -92,7 +100,11 @@ let foldBack folder (map: HashMap<'Key, 'Value>) initial =
 //Отображение map
 let map mapper (map: HashMap<'Key, 'Value>) =
     let mapChain chain =
-        List.map (fun entry -> { Key = entry.Key; Value = mapper entry.Value }) chain
+        List.map
+            (fun entry ->
+                { Key = entry.Key
+                  Value = mapper entry.Value })
+            chain
 
     let newMap = Array.init (size map) (fun index -> mapChain map.[index])
     newMap
@@ -100,14 +112,13 @@ let map mapper (map: HashMap<'Key, 'Value>) =
 
 // Функция для объединения двух HashMap
 let merge (map1: HashMap<'Key, 'Value>) (map2: HashMap<'Key, 'Value>) : HashMap<'Key, 'Value> =
-    let mergeEntry (acc: Entry<_, _>  list) entry =
-        
+    let mergeEntry (acc: Entry<_, _> list) entry =
+
         entry :: acc
 
     Array.init (size map1) (fun index ->
         let chain1 = map1.[index]
         let chain2 = map2.[index]
-        List.fold mergeEntry chain1 chain2
-    )
+        List.fold mergeEntry chain1 chain2)
 
 let emptyMap<'Key, 'Value> : HashMap<'Key, 'Value> = Array.init 10 (fun _ -> [])
