@@ -83,6 +83,25 @@ let rec fold f acc (hashmap: HashMap<'Key, 'Value>) =
         let newAcc = Array.fold (fun acc chain -> foldChain acc chain) acc hashmap
         newAcc
 ```
+### Map
+let map mapper (map: HashMap<'Key, 'Value>) =
+    let rec mapChain chain =
+        match chain with
+        | [] -> []
+        | entry :: rest ->
+            { Key = entry.Key
+              Value = mapper entry.Value }
+            :: mapChain rest
+
+    let rec mapHashMap index =
+        if index >= Array.length map then
+            [||]
+        else
+            let updatedChain = mapChain map.[index]
+            let restMap = mapHashMap (index + 1)
+            Array.append [| updatedChain |] restMap
+
+    mapHashMap 0
 ### Нейтральный элемент
 ```
 let emptyMap<'Key, 'Value> : HashMap<'Key, 'Value> = Array.init 10 (fun _ -> [])
