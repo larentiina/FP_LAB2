@@ -1,26 +1,21 @@
 module Dict
 
-type Entry = {
-    Key: int
-    Value: string
+type Entry<'Key, 'Value> = {
+    Key: 'Key
+    Value: 'Value
 }
 
-type Chain = Entry list
-type HashMap = Chain array
-let size (map: HashMap) =  10
-// Хеш-функция для вычисления индекса
-let hash (key: int) =
-    let prime = 31
-    let rec computeHash k acc =
-        if k = 0 then acc
-        else computeHash (k >>> 8) (acc * prime + (k &&& 0xFF))
+type Chain<'Key, 'Value> = Entry<'Key, 'Value> list
+type HashMap<'Key, 'Value> = Chain<'Key, 'Value> array
+let size (map: HashMap<_, _>) =  10
 
-    abs (computeHash key 0) % 10
-
-//    Array.length map 
+let hash (key: 'Key) : int =
+    match box key with
+    | null -> 0
+    | _ -> key.GetHashCode() % 10
 
 // Функция для вставки нового элемента в хеш-таблицу
-let put (key: int) (value: string) (map: HashMap) =
+let put (key: 'Key) (value: 'Value) (map: HashMap<'Key, 'Value>) =
     let index = hash key 
 
     let chain = map.[index]
@@ -34,14 +29,14 @@ let put (key: int) (value: string) (map: HashMap) =
     Array.mapi (fun i c -> if i = index then newChain else c) map
 
 
-let get (key: int) (map: HashMap) : Option<string> =
-    let index = key % Array.length map 
+let get (key: 'Key) (map: HashMap<'Key, 'Value>) : Option<'Value> =
+    let index = hash key
     let chain = map.[index] 
     chain |> List.tryFind (fun entry -> entry.Key = key) |> Option.map (fun entry -> entry.Value)
 
 
 // Удаление из HashMap
-let remove key (map: HashMap) =
+let remove key (map: HashMap<'Key, 'Value>) =
     
     let index = hash key
     let chain = map.[index] 
@@ -52,7 +47,7 @@ let remove key (map: HashMap) =
 
 
 // Фильтрация элементов в HashMap по предикату
-let filter predicate (map: HashMap) =
+let filter (predicate: Entry<'Key, 'Value> -> bool) (map: HashMap<'Key, 'Value>) : HashMap<'Key, 'Value> =
     let addToBucket bucket entry =
         if predicate entry then entry :: bucket else bucket
 
@@ -66,7 +61,7 @@ let filter predicate (map: HashMap) =
 
 
 // Функция свёртки
-let rec fold f acc (hashmap: HashMap) =
+let rec fold f acc (hashmap: HashMap<'Key, 'Value>) =
     let rec foldChain acc chain =
         match chain with
         | [] -> acc
@@ -79,7 +74,7 @@ let rec fold f acc (hashmap: HashMap) =
         newAcc
 
 // Функция обратной свёртки
-let foldBack folder (map: HashMap) initial =
+let foldBack folder (map: HashMap<'Key, 'Value>) initial =
     let rec foldChain chain acc =
         match List.rev chain with
         | [] -> acc
@@ -95,7 +90,7 @@ let foldBack folder (map: HashMap) initial =
 
     foldMap (Array.length map - 1) initial
 //Отображение map
-let map mapper (map: HashMap) =
+let map mapper (map: HashMap<'Key, 'Value>) =
     let mapChain chain =
         List.map (fun entry -> { Key = entry.Key; Value = mapper entry.Value }) chain
 
@@ -104,8 +99,8 @@ let map mapper (map: HashMap) =
 
 
 // Функция для объединения двух HashMap
-let merge (map1: HashMap) (map2: HashMap) : HashMap =
-    let mergeEntry (acc: Entry list) entry =
+let merge (map1: HashMap<'Key, 'Value>) (map2: HashMap<'Key, 'Value>) : HashMap<'Key, 'Value> =
+    let mergeEntry (acc: Entry<_, _>  list) entry =
         
         entry :: acc
 
@@ -115,4 +110,4 @@ let merge (map1: HashMap) (map2: HashMap) : HashMap =
         List.fold mergeEntry chain1 chain2
     )
 
-let emptyMap : HashMap = Array.init 10 (fun _ -> [])
+let emptyMap<'Key, 'Value> : HashMap<'Key, 'Value> = Array.init 10 (fun _ -> [])
