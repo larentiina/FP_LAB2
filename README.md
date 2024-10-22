@@ -69,5 +69,24 @@ let merge (map1: HashMap<'Key, 'Value>) (map2: HashMap<'Key, 'Value>) : HashMap<
         List.fold mergeEntry chain1 chain2
     )
 ```
+### Fold
+```
+let rec fold f acc (hashmap: HashMap<'Key, 'Value>) =
+    let rec foldChain acc chain =
+        match chain with
+        | [] -> acc
+        | entry :: rest -> foldChain (f acc entry) rest
+
+    match hashmap with
+    | [||] -> acc
+    | _ ->
+        let newAcc = Array.fold (fun acc chain -> foldChain acc chain) acc hashmap
+        newAcc
+```
+### Нейтральный элемент
+```
+let emptyMap<'Key, 'Value> : HashMap<'Key, 'Value> = Array.init 10 (fun _ -> [])
+
+```
 ## Вывод
 В ходе лабораторной работы была успешно реализована хэш-таблица с разделением цепочками на языке F#. Реализация включает функции для добавления, получения и удаления элементов, а также для фильтрации и объединения карт. Все тесты подтвердили корректность работы структуры. Применение цепочек для разрешения коллизий обеспечило надежность и гибкость. В целом, работа показала эффективность хэш-таблиц как инструмента для хранения и быстрого доступа к данным.
