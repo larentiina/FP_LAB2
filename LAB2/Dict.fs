@@ -97,24 +97,31 @@ let foldBack folder (map: HashMap<'Key, 'Value>) initial =
             foldMap (index - 1) newAcc
 
     foldMap (Array.length map - 1) initial
+
 //Отображение map
 let map mapper (map: HashMap<'Key, 'Value>) =
-    let mapChain chain =
-        List.map
-            (fun entry ->
-                { Key = entry.Key
-                  Value = mapper entry.Value })
-            chain
+    let rec mapChain chain =
+        match chain with
+        | [] -> []
+        | entry :: rest ->
+            { Key = entry.Key
+              Value = mapper entry.Value }
+            :: mapChain rest
 
-    let newMap = Array.init (size map) (fun index -> mapChain map.[index])
-    newMap
+    let rec mapHashMap index =
+        if index >= Array.length map then
+            [||]
+        else
+            let updatedChain = mapChain map.[index]
+            let restMap = mapHashMap (index + 1)
+            Array.append [| updatedChain |] restMap
+
+    mapHashMap 0
 
 
 // Функция для объединения двух HashMap
 let merge (map1: HashMap<'Key, 'Value>) (map2: HashMap<'Key, 'Value>) : HashMap<'Key, 'Value> =
-    let mergeEntry (acc: Entry<_, _> list) entry =
-
-        entry :: acc
+    let mergeEntry (acc: Entry<_, _> list) entry = entry :: acc
 
     Array.init (size map1) (fun index ->
         let chain1 = map1.[index]
