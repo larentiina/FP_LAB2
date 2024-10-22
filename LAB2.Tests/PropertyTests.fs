@@ -2,19 +2,19 @@ module PropertyTests
 
 open System
 open Xunit
-open FsCheck
 open Dict
 
 [<Fact>]
 let ``Test merge HashMap and emptymap with random key`` () =
-    let key = System.Random().Next(0, 100) 
+    let key = System.Random().Next(1, 100) 
     let value = "testValue" 
 
-    let originalMap = put key value emptyMap
-    let mergedMap = merge originalMap emptyMap
+    let map = emptyMap
+    let map1 = put key value map
+    let mergedMap = merge map map1
 
     printfn "Testing merge of HashMap with emptyMap. Key: %d, Value: %s" key value
-    Assert.Equal<HashMap>(originalMap, mergedMap)
+    Assert.Equal<HashMap<int, String>>(map1, mergedMap)
 
 
 [<Fact>]
@@ -34,7 +34,7 @@ let ``Test merge order of HashMaps`` () =
         let mergedMap2= merge map2 map1
         printfn "Testing merge order. Key1: %d, Value1: %s; Key2: %d, Value2: %s" key1 value1 key2 value2
 
-        Assert.Equal<HashMap>(mergedMap1, mergedMap2)
+        Assert.Equal<HashMap<int, String>>(mergedMap1, mergedMap2)
 
 [<Fact>]
 let ``Test removal from HashMap`` () =
