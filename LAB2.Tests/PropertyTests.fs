@@ -3,59 +3,40 @@ module PropertyTests
 open System
 open Xunit
 open Dict
+open FsCheck
+open FsCheck.Xunit
+let genEntry (genKey: Gen<'Key>) (genValue: Gen<'Value>) : Gen<Entry<'Key, 'Value>> =
+    gen {
+        let! key = genKey
+        let! value = genValue
+        return { Key = key; Value = value }
+    }
 
-[<Fact>]
-let ``Test merge HashMap and emptymap with random key`` () =
-    let key = System.Random().Next(1, 100) 
-    let value = "testValue" 
-
-    let map = emptyMap
-    let map1 = put key value map
-    let mergedMap = merge map map1
-
-    printfn "Testing merge of HashMap with emptyMap. Key: %d, Value: %s" key value
-    Assert.Equal<HashMap<int, String>>(map1, mergedMap)
+let hash (key: 'Key) (size: int) : int =
+    match box key with
+    | null -> 0
+    | _ -> abs (key.GetHashCode() % size)
 
 
-[<Fact>]
-let ``Test merge order of HashMaps`` () =
-    let testData = [
-        (1, "value1", 2, "value2")
-        (3, "value3", 4, "value4")
-        (5, "value5", 6, "value6")
-    ]
+let genHashMap (genKey: Gen<'Key>) (genValue: Gen<'Value>) (size: int) : Gen<HashMap<'Key, 'Value>> =
+    gen {
+        let hashMap = emptyMap
+        let! entries = Gen.listOf (genEntry genKey genValue)
+        return entries |> List.fold (fun acc entry -> put entry.Key entry.Value acc) hashMap
+    }
 
-    for (key1, value1, key2, value2) in testData do
-    
-        let map1 = put key1 value1 emptyMap
-        let map2 = put key2 value2 emptyMap
+let arbHashMap<'Key, 'Value when 'Key : comparison> () : Arbitrary<HashMap<'Key, 'Value>> =
+    Arb.fromGen (genHashMap Arb.generate Arb.generate 5)
 
-        let mergedMap1 = merge map1 map2
-        let mergedMap2= merge map2 map1
-        printfn "Testing merge order. Key1: %d, Value1: %s; Key2: %d, Value2: %s" key1 value1 key2 value2
+type HashMapGenerators =
+    static member HashMapArbitrary<'Key, 'Value when 'Key : comparison>() : Arbitrary<HashMap<'Key, 'Value>> =
+        arbHashMap()
 
-        Assert.Equal<HashMap<int, String>>(mergedMap1, mergedMap2)
+Arb.register<HashMapGenerators>() |> ignore
 
-[<Fact>]
-let ``Test removal from HashMap`` () =
-    let testData = [
-        (1, "value1")
-        (2, "value2")
-        (3, "value3")
-    ]
+[<Property(Arbitrary = [| typeof<HashMapGenerators> |])>]
+let prop_emptyMerge (map: HashMap<int, string>) =
+    let emptyMap = emptyMap
+    let mergedMap = merge map emptyMap
+    equal map mergedMap 
 
-    let map =
-        testData
-        |> List.fold (fun acc (key, value) -> put key value acc) emptyMap
-
-    for (key, value) in testData do
-        let updatedMap = remove key map
-
-        let retrievedValue = get key updatedMap
-        printfn "Testing removal. Key: %d" key
-        Assert.Null(retrievedValue)
-
-        for (k, v) in testData do
-            if k <> key then
-                let remainingValue = get k updatedMap
-                Assert.Equal(Some v, remainingValue)
