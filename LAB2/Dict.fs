@@ -4,12 +4,32 @@ type Entry<'Key, 'Value> = { Key: 'Key; Value: 'Value }
 
 type Chain<'Key, 'Value> = Entry<'Key, 'Value> list
 type HashMap<'Key, 'Value> = Chain<'Key, 'Value> array
-let size (map: HashMap<_, _>) = 10
+let size  = 10
 
 let hash (key: 'Key) : int =
     match box key with
     | null -> 0
-    | _ -> key.GetHashCode() % 10
+    | _ -> key.GetHashCode() % size
+
+let resize (hashMap: HashMap<'Key, 'Value>) : HashMap<'Key, 'Value> =
+    let currentSize = Array.length hashMap
+    let newSize = int (float currentSize * 1.5)
+    
+    let rehash key = 
+        match box key with
+        | null -> 0
+        | _ -> abs (key.GetHashCode() % newSize) 
+
+    let newHashMap = Array.init newSize (fun _ -> [])
+
+    for chain in hashMap do
+        for entry in chain do
+            let newIndex = rehash entry.Key
+            newHashMap.[newIndex] <- entry :: newHashMap.[newIndex]
+
+    newHashMap
+
+ 
 
 // Функция для вставки нового элемента в хеш-таблицу
 let put (key: 'Key) (value: 'Value) (map: HashMap<'Key, 'Value>) =
@@ -123,9 +143,20 @@ let map mapper (map: HashMap<'Key, 'Value>) =
 let merge (map1: HashMap<'Key, 'Value>) (map2: HashMap<'Key, 'Value>) : HashMap<'Key, 'Value> =
     let mergeEntry (acc: Entry<_, _> list) entry = entry :: acc
 
-    Array.init (size map1) (fun index ->
+    Array.init (size ) (fun index ->
         let chain1 = map1.[index]
         let chain2 = map2.[index]
         List.fold mergeEntry chain1 chain2)
 
-let emptyMap<'Key, 'Value> : HashMap<'Key, 'Value> = Array.init 10 (fun _ -> [])
+let emptyMap<'Key, 'Value> : HashMap<'Key, 'Value> = Array.init size (fun _ -> [])
+
+let equal (hashmap1: HashMap<'Key, 'Value>) (hashmap2: HashMap<'Key, 'Value>) =
+    let containsEntry chain entry =
+        chain |> List.exists (fun e -> e.Key = entry.Key && e.Value = entry.Value)
+
+    let chainsEqual chain1 chain2 =
+        chain1 |> List.forall (containsEntry chain2) &&
+        chain2 |> List.forall (containsEntry chain1)
+
+    Array.length hashmap1 = Array.length hashmap2 &&
+    Array.forall2 chainsEqual hashmap1 hashmap2
