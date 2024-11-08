@@ -35,7 +35,7 @@ let reinsertAll (hashMap: HashMap<'Key, 'Value>) : HashMap<'Key, 'Value> =
         List.fold (fun acc' entry ->
             put entry.Key entry.Value acc') acc chain) empty hashMap
 
-[<Property(Verbose = true, Arbitrary = [| typeof<HashMapGenerators> |])>]
+[<Property(Arbitrary = [| typeof<HashMapGenerators> |])>]
 let prop_emptyMerge (map: HashMap<int, int>) =
     let map = reinsertAll map
     let mergedMap = merge map emptyMap
