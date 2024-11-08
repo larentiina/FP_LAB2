@@ -21,22 +21,43 @@ type HashMap<'Key, 'Value> = Chain<'Key, 'Value> array
 ```
 
 ## Реализованные функции 
-
+### Hash
+```
+let hash (key: 'Key) (size: int) : int =
+    match box key with
+    | null -> 0
+    | _ -> abs (key.GetHashCode()) % size
+```
 ### Put
 Добавляет элемент в бакет, если такой ключ уже есть - обновляет элемент
 ```
 let put (key: 'Key) (value: 'Value) (map: HashMap<'Key, 'Value>) =
-    let index = hash key 
+    let index = hash key (Array.length map)
 
     let chain = map.[index]
 
     let putChain key value chain =
         match List.tryFind (fun entry -> entry.Key = key) chain with
-        | Some _ -> List.map (fun entry -> if entry.Key = key then { entry with Value = value } else entry) chain
+        | Some _ ->
+            List.map
+                (fun entry ->
+                    if entry.Key = key then
+                        { entry with Value = value }
+                    else
+                        entry)
+                chain
         | None -> { Key = key; Value = value } :: chain
 
     let newChain = putChain key value chain
-    Array.mapi (fun i c -> if i = index then newChain else c) map
+
+
+    let newMap = 
+        if float (Array.length map) * 0.7 < float (Array.sumBy List.length map) then
+            resize map 
+        else
+            map
+
+    Array.mapi (fun i c -> if i = index then newChain else c) newMap
 ```
 
 ### Remove
@@ -59,15 +80,25 @@ let remove key (map: HashMap<'Key, 'Value>) =
 ```
 
 let merge (map1: HashMap<'Key, 'Value>) (map2: HashMap<'Key, 'Value>) : HashMap<'Key, 'Value> =
-    let mergeEntry (acc: Entry<_, _>  list) entry =
-        
-        entry :: acc
+    
+    let mergedMap= emptyMap
+    let size = Array.length mergedMap
 
-    Array.init (size map1) (fun index ->
-        let chain1 = map1.[index]
-        let chain2 = map2.[index]
-        List.fold mergeEntry chain1 chain2
-    )
+    let addAll (map: HashMap<'Key, 'Value>) (targetMap: HashMap<'Key, 'Value>) =
+        map
+        |> Array.iteri (fun i chain ->
+            chain |> List.iter (fun entry ->
+                let index = hash entry.Key size
+                targetMap.[index] <- entry :: targetMap.[index]))
+
+    addAll map1 mergedMap
+    addAll map2 mergedMap
+
+    if float (Array.sumBy List.length mergedMap) > float size * 0.7 then
+        resize mergedMap
+    else
+        mergedMap
+
 ```
 ### Fold
 ```
@@ -104,8 +135,46 @@ let map mapper (map: HashMap<'Key, 'Value>) =
     mapHashMap 0
 ### Нейтральный элемент
 ```
-let emptyMap<'Key, 'Value> : HashMap<'Key, 'Value> = Array.init 10 (fun _ -> [])
+let emptyMap<'Key, 'Value> : HashMap<'Key, 'Value> = Array.init initalSize (fun _ -> [])
 
 ```
+### Функция увеличения размера map при загружке её в более чем 0.7
+```
+let resize (map: HashMap<'Key, 'Value>) : HashMap<'Key, 'Value> =
+    let newSize = int (float (Array.length map) * 1.5) 
+    let newMap = Array.init newSize (fun _ -> []) 
+
+    map |> Array.iter (fun chain ->
+        chain |> List.iter (fun entry ->
+            let index = hash entry.Key newSize
+            newMap.[index] <- newMap.[index] @ [entry]
+        )
+    )
+
+    newMap
+```
+
+## Тесты
+### Проверти - тесты
+Проверяют свойства моноида: 
+
+Сумму с нейтральным элементом:
+```
+[<Property(Verbose = true, Arbitrary = [| typeof<HashMapGenerators> |])>]
+let prop_emptyMerge (map: HashMap<int, int>) =
+    let map = reinsertAll map
+    let mergedMap = merge map emptyMap
+    equal map mergedMap 
+
+```
+Свойство ассоциативности:
+```
+[<Property(Arbitrary = [| typeof<HashMapGenerators> |])>]
+let prop_association (map1: HashMap<int, int>) (map2:HashMap<int, int> ) (map3:HashMap<int, int> ) =
+    let mergedMap1 = merge(merge map1 map2) map3
+    let mergedMap2 = merge (merge map1 map3) map2
+    equal mergedMap1 mergedMap2 
+```
+
 ## Вывод
 В ходе лабораторной работы была успешно реализована хэш-таблица с разделением цепочками на языке F#. Реализация включает функции для добавления, получения и удаления элементов, а также для фильтрации и объединения карт. Все тесты подтвердили корректность работы структуры. Применение цепочек для разрешения коллизий обеспечило надежность и гибкость. В целом, работа показала эффективность хэш-таблиц как инструмента для хранения и быстрого доступа к данным.
