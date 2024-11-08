@@ -4,36 +4,30 @@ type Entry<'Key, 'Value> = { Key: 'Key; Value: 'Value }
 
 type Chain<'Key, 'Value> = Entry<'Key, 'Value> list
 type HashMap<'Key, 'Value> = Chain<'Key, 'Value> array
-let size  = 10
+let initalSize  = 10
 
-let hash (key: 'Key) : int =
+let hash (key: 'Key) (size: int) : int =
     match box key with
     | null -> 0
-    | _ -> key.GetHashCode() % size
+    | _ -> abs (key.GetHashCode()) % size
 
-let resize (hashMap: HashMap<'Key, 'Value>) : HashMap<'Key, 'Value> =
-    let currentSize = Array.length hashMap
-    let newSize = int (float currentSize * 1.5)
-    
-    let rehash key = 
-        match box key with
-        | null -> 0
-        | _ -> abs (key.GetHashCode() % newSize) 
+let resize (map: HashMap<'Key, 'Value>) : HashMap<'Key, 'Value> =
+    let newSize = int (float (Array.length map) * 1.5) 
+    let newMap = Array.init newSize (fun _ -> []) 
 
-    let newHashMap = Array.init newSize (fun _ -> [])
+    map |> Array.iter (fun chain ->
+        chain |> List.iter (fun entry ->
+            let index = hash entry.Key newSize
+            newMap.[index] <- newMap.[index] @ [entry]
+        )
+    )
 
-    for chain in hashMap do
-        for entry in chain do
-            let newIndex = rehash entry.Key
-            newHashMap.[newIndex] <- entry :: newHashMap.[newIndex]
-
-    newHashMap
-
+    newMap
  
 
 // Функция для вставки нового элемента в хеш-таблицу
 let put (key: 'Key) (value: 'Value) (map: HashMap<'Key, 'Value>) =
-    let index = hash key
+    let index = hash key (Array.length map)
 
     let chain = map.[index]
 
@@ -50,11 +44,19 @@ let put (key: 'Key) (value: 'Value) (map: HashMap<'Key, 'Value>) =
         | None -> { Key = key; Value = value } :: chain
 
     let newChain = putChain key value chain
-    Array.mapi (fun i c -> if i = index then newChain else c) map
+
+
+    let newMap = 
+        if float (Array.length map) * 0.7 < float (Array.sumBy List.length map) then
+            resize map 
+        else
+            map
+
+    Array.mapi (fun i c -> if i = index then newChain else c) newMap
 
 
 let get (key: 'Key) (map: HashMap<'Key, 'Value>) : Option<'Value> =
-    let index = hash key
+    let index = hash key (Array.length map)
     let chain = map.[index]
 
     chain
@@ -65,7 +67,7 @@ let get (key: 'Key) (map: HashMap<'Key, 'Value>) : Option<'Value> =
 // Удаление из HashMap
 let remove key (map: HashMap<'Key, 'Value>) =
 
-    let index = hash key
+    let index = hash key (Array.length map)
     let chain = map.[index]
 
     let modifiedChain = List.filter (fun entry -> entry.Key <> key) chain
@@ -139,24 +141,45 @@ let map mapper (map: HashMap<'Key, 'Value>) =
     mapHashMap 0
 
 
-// Функция для объединения двух HashMap
+
+let emptyMap<'Key, 'Value> : HashMap<'Key, 'Value> = Array.init initalSize (fun _ -> [])
+
 let merge (map1: HashMap<'Key, 'Value>) (map2: HashMap<'Key, 'Value>) : HashMap<'Key, 'Value> =
-    let mergeEntry (acc: Entry<_, _> list) entry = entry :: acc
+    
+    let mergedMap= emptyMap
+    let size = Array.length mergedMap
 
-    Array.init (size ) (fun index ->
-        let chain1 = map1.[index]
-        let chain2 = map2.[index]
-        List.fold mergeEntry chain1 chain2)
+    let addAll (map: HashMap<'Key, 'Value>) (targetMap: HashMap<'Key, 'Value>) =
+        map
+        |> Array.iteri (fun i chain ->
+            chain |> List.iter (fun entry ->
+                let index = hash entry.Key size
+                targetMap.[index] <- entry :: targetMap.[index]))
 
-let emptyMap<'Key, 'Value> : HashMap<'Key, 'Value> = Array.init size (fun _ -> [])
+    addAll map1 mergedMap
+    addAll map2 mergedMap
 
-let equal (hashmap1: HashMap<'Key, 'Value>) (hashmap2: HashMap<'Key, 'Value>) =
-    let containsEntry chain entry =
-        chain |> List.exists (fun e -> e.Key = entry.Key && e.Value = entry.Value)
+    if float (Array.sumBy List.length mergedMap) > float size * 0.7 then
+        resize mergedMap
+    else
+        mergedMap
 
-    let chainsEqual chain1 chain2 =
-        chain1 |> List.forall (containsEntry chain2) &&
-        chain2 |> List.forall (containsEntry chain1)
+let equal (map1: HashMap<'Key, 'Value>) (map2: HashMap<'Key, 'Value>) : bool =
+    let minSize = min (Array.length map1) (Array.length map2)
 
-    Array.length hashmap1 = Array.length hashmap2 &&
-    Array.forall2 chainsEqual hashmap1 hashmap2
+    let extraBucketsEmpty (map: HashMap<'Key, 'Value>) startIndex =
+        Array.forall (fun bucket -> bucket = []) map.[startIndex..]
+
+    let allEntriesPresent chain otherChain =
+        List.forall (fun entry -> 
+            List.exists (fun e -> e.Key = entry.Key && e.Value = entry.Value) otherChain) chain
+
+    let areCommonBucketsEqual =
+        Array.forall2 
+            (fun (b1: Chain<'Key, 'Value>) (b2: Chain<'Key, 'Value>) ->
+                allEntriesPresent b1 b2 && allEntriesPresent b2 b1)
+            map1.[..minSize - 1] 
+            map2.[..minSize - 1]
+
+    areCommonBucketsEqual &&
+    (extraBucketsEmpty map1 minSize || extraBucketsEmpty map2 minSize)
