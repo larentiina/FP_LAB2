@@ -33,7 +33,7 @@ let ``Filter Test`` () =
         |> put 2 "value2"
 
     let filteredMap =
-        filter (fun (entry: Entry<int, string>) -> entry.Value.Contains("2")) map
+        filter (fun entry -> entry.Value ="value2") map
 
     let expectedMap = emptyMap |> put 2 "value2"
 
